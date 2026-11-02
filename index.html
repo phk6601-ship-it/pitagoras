@@ -1,0 +1,1205 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}*,*::before,*::after{box-sizing:border-box}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>연쇄반응 공작소</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<style>
+/* Layout: full-screen 3D workbench, toy-like sticker HUD pinned to the four edges */
+:root {
+  --ink: #1b2340;
+  --ink-soft: #4a5378;
+  --panel: #ffffff;
+  --panel-tint: #f2f5fb;
+  --sun: #ffc533;
+  --go: #23b35f;
+  --tomato: #ff5a3c;
+  --sky: #bfe0f2;
+  --font-display: "Jua", "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  background: var(--sky);
+  color: var(--ink);
+  font-family: var(--font-body);
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+
+button {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--panel);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 0 4px 0 var(--ink);
+  padding: 0.5rem 0.85rem;
+  min-height: 46px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.06s, box-shadow 0.06s;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  white-space: nowrap;
+}
+button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+button:focus-visible { outline: 3px solid var(--tomato); outline-offset: 2px; }
+button:disabled { opacity: 0.45; }
+button svg { width: 22px; height: 22px; flex: none; }
+
+/* ---------- HUD ---------- */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+  padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  pointer-events: none;
+}
+.topbar > .mission-card { pointer-events: auto; }
+.top-actions { pointer-events: none; }
+.top-actions > * { pointer-events: auto; }
+.mission-card {
+  background: var(--panel);
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  box-shadow: 0 5px 0 var(--ink);
+  padding: 0.6rem 0.9rem 0.7rem;
+  max-width: min(440px, 62vw);
+  min-width: 0;
+}
+.eyebrow {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 0.8rem; letter-spacing: 0.06em;
+  background: var(--sun); border: 2px solid var(--ink); border-radius: 999px;
+  padding: 0.05rem 0.6rem;
+}
+.mission-card h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.45rem; margin: 0.25rem 0 0.15rem; text-wrap: balance; }
+.mission-card p { margin: 0; font-size: 0.95rem; line-height: 1.45; color: var(--ink-soft); }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+.bottombar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+.bottombar > * { pointer-events: auto; }
+.dock-left { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; min-width: 0; flex: 1 1 260px; }
+.bottombar > .dock-left, .bottombar > .dock-right { pointer-events: none; }
+.dock-left > *, .dock-right > * { pointer-events: auto; }
+.chips {
+  background: var(--panel); border: 3px solid var(--ink); border-radius: 14px;
+  box-shadow: 0 4px 0 var(--ink);
+  padding: 0.45rem 0.8rem; font-family: var(--font-display); font-size: 0.95rem;
+  display: flex; gap: 0.4rem 0.8rem; flex-wrap: wrap; align-items: center;
+}
+.chips .label { color: var(--ink-soft); }
+.chips b { font-weight: 400; font-variant-numeric: tabular-nums; background: var(--panel-tint); border-radius: 8px; padding: 0 0.4rem; }
+.tray { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; max-width: 100%; }
+.tray button { flex-direction: column; gap: 2px; min-width: 64px; padding: 0.35rem 0.5rem; font-size: 0.85rem; }
+.tray button svg { width: 28px; height: 28px; }
+
+.toolbar {
+  position: fixed; left: 0; top: 0; z-index: 12;
+  max-width: calc(100vw - 32px);
+  background: var(--panel); border: 3px solid var(--ink); border-radius: 18px;
+  box-shadow: 0 5px 0 var(--ink);
+  padding: 0.5rem; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center;
+}
+.toolbar .name { font-family: var(--font-display); font-size: 1.05rem; padding: 0 0.5rem 0 0.3rem; }
+.toolbar button { box-shadow: 0 3px 0 var(--ink); min-height: 44px; padding: 0.4rem 0.7rem; }
+.toolbar .dup { background: var(--sun); }
+
+.dock-right { display: flex; gap: 10px; align-items: flex-end; margin-left: auto; }
+.go {
+  font-size: 1.6rem; min-height: 68px; padding: 0.4rem 1.6rem; border-radius: 20px;
+  background: var(--go); color: #fff; box-shadow: 0 6px 0 var(--ink);
+  text-shadow: 0 2px 0 rgba(27,35,64,0.35);
+}
+.go.fix { background: var(--sun); color: var(--ink); text-shadow: none; }
+.go:active { box-shadow: 0 2px 0 var(--ink); transform: translateY(4px); }
+.slow[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+#toast {
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 110px); z-index: 25;
+  transform: translate(-50%, -10px); opacity: 0;
+  background: var(--ink); color: #fff; font-family: var(--font-display); font-size: 1.05rem;
+  padding: 0.6rem 1rem; border-radius: 14px; max-width: calc(100% - 32px); text-align: center;
+  transition: opacity 0.2s, transform 0.2s; pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- overlays ---------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 20;
+  background: rgba(27, 35, 64, 0.38);
+  display: flex; align-items: center; justify-content: center;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px);
+  padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+  overflow-y: auto;
+}
+.sheet {
+  background: var(--panel); border: 3px solid var(--ink); border-radius: 26px;
+  box-shadow: 0 8px 0 var(--ink);
+  padding: 1.4rem 1.4rem 1.5rem; width: min(720px, 100%); margin: auto;
+}
+.sheet h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.6rem; margin: 0 0 0.4rem; text-wrap: balance; }
+.sheet p { margin: 0 0 1rem; line-height: 1.55; color: var(--ink-soft); max-width: 60ch; }
+
+.title-wrap { display: flex; align-items: center; gap: 14px; margin-bottom: 0.3rem; flex-wrap: wrap; }
+.title-wrap h2 { font-size: clamp(2rem, 6vw, 2.8rem); margin: 0; line-height: 1.05; }
+.logo-chain { display: flex; gap: 5px; align-items: flex-end; height: 48px; }
+.logo-chain i { display: block; width: 10px; height: 40px; border: 2.5px solid var(--ink); border-radius: 3px; transform-origin: bottom right; }
+.logo-chain i:nth-child(1) { background: var(--tomato); transform: rotate(38deg); }
+.logo-chain i:nth-child(2) { background: var(--sun); transform: rotate(22deg); }
+.logo-chain i:nth-child(3) { background: #2f7de1; transform: rotate(8deg); }
+.logo-chain i:nth-child(4) { background: var(--go); }
+.logo-chain .bell { width: 26px; height: 26px; border-radius: 50% 50% 6px 6px; background: var(--sun); border: 2.5px solid var(--ink); transform: none; margin-left: 4px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.card {
+  text-align: left; flex-direction: column; align-items: flex-start; gap: 0.3rem;
+  padding: 0.9rem 1rem 1rem; border-radius: 18px; min-height: 120px; white-space: normal;
+  font-family: var(--font-body);
+}
+.card .k { font-family: var(--font-display); font-size: 0.85rem; color: var(--ink-soft); display: flex; gap: 6px; align-items: center; }
+.card .t { font-family: var(--font-display); font-size: 1.3rem; }
+.card .d { font-size: 0.92rem; line-height: 1.45; color: var(--ink-soft); }
+.card .done { background: var(--go); color: #fff; border-radius: 999px; padding: 0 0.5rem; font-size: 0.78rem; }
+.card.free { background: var(--sun); grid-column: 1 / -1; min-height: 0; }
+.card.free .d, .card.free .k { color: var(--ink); }
+
+.howto { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 0.4rem 0 1.2rem; padding: 0; list-style: none; }
+.howto li { background: var(--panel-tint); border-radius: 14px; padding: 0.7rem 0.85rem; line-height: 1.45; font-size: 0.95rem; }
+.howto b { font-family: var(--font-display); font-weight: 400; font-size: 1.05rem; display: block; color: var(--ink); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.primary { background: var(--sun); }
+
+.win .big { font-family: var(--font-display); font-size: clamp(2.6rem, 9vw, 4rem); line-height: 1; margin: 0 0 0.3rem; }
+.win .stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 0.6rem 0 1.2rem; }
+.win .stats div { background: var(--panel-tint); border-radius: 14px; padding: 0.5rem 0.9rem; font-family: var(--font-display); }
+.win .stats span { display: block; font-size: 0.8rem; color: var(--ink-soft); }
+.win .stats strong { font-weight: 400; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+
+#loading { flex-direction: column; gap: 14px; color: var(--ink); font-family: var(--font-display); font-size: 1.3rem; background: var(--sky); text-align: center; }
+#loading .spin { display: flex; gap: 6px; }
+#loading .spin i { width: 12px; height: 44px; border: 3px solid var(--ink); border-radius: 4px; background: var(--sun); transform-origin: bottom right; animation: tip 1.2s infinite ease-in; }
+#loading .spin i:nth-child(2) { animation-delay: 0.15s; background: var(--tomato); }
+#loading .spin i:nth-child(3) { animation-delay: 0.3s; background: #2f7de1; }
+#loading .spin i:nth-child(4) { animation-delay: 0.45s; background: var(--go); }
+@keyframes tip { 0%, 30% { transform: rotate(0); } 55%, 100% { transform: rotate(70deg); } }
+
+@media (max-width: 560px) {
+  .topbar { flex-wrap: wrap; }
+  .mission-card { max-width: 100%; flex: 1 1 100%; padding: 0.5rem 0.75rem 0.6rem; }
+  .top-actions { flex: 1 1 100%; justify-content: flex-start; gap: 6px; }
+  .top-actions button { min-height: 40px; }
+  .mission-card h1 { font-size: 1.15rem; }
+  .mission-card p { font-size: 0.85rem; }
+  .top-actions button { padding: 0.4rem 0.55rem; font-size: 0.9rem; }
+  .go { font-size: 1.3rem; min-height: 58px; padding: 0.3rem 1.1rem; }
+  .sheet { padding: 1.1rem 1rem 1.2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #loading .spin i { animation: none; }
+  button, #toast { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="view" tabindex="0" aria-label="3D 작업대"></canvas>
+<canvas id="confetti"></canvas>
+
+<div id="hud" hidden>
+  <header class="topbar">
+    <div class="mission-card">
+      <span class="eyebrow" id="mEyebrow">미션 1</span>
+      <h1 id="mTitle">첫 번째 연쇄</h1>
+      <p id="mGoal"></p>
+    </div>
+    <div class="top-actions">
+      <button id="btnHelp" type="button">도움말</button>
+      <button id="btnCam" type="button">시점</button>
+      <button id="btnReset" type="button">모두 정리</button>
+      <button id="btnMenu" type="button">처음 화면</button>
+    </div>
+  </header>
+  <div class="bottombar">
+    <div class="dock-left" id="dockLeft">
+      <div class="chips" id="chips"></div>
+      <div class="tray" id="tray" hidden></div>
+    </div>
+    <div class="dock-right">
+      <button type="button" id="btnSlow" class="slow" aria-pressed="false" hidden>느리게</button>
+      <button type="button" id="btnGo" class="go">출발!</button>
+    </div>
+  </div>
+</div>
+
+<div class="toolbar" id="toolbar" hidden>
+      <span class="name" id="selName">도미노</span>
+      <button type="button" id="btnRotL" aria-label="왼쪽으로 15도 돌리기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 3v5h5"/></svg>15°</button>
+      <button type="button" id="btnRotR" aria-label="오른쪽으로 15도 돌리기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 3v5h-5"/></svg>15°</button>
+      <button type="button" id="btnDup" class="dup">이어 세우기</button>
+      <button type="button" id="btnBox">상자로</button>
+    </div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div class="overlay" id="menu" hidden>
+  <div class="sheet">
+    <div class="title-wrap">
+      <div class="logo-chain" aria-hidden="true"><i></i><i></i><i></i><i></i><i class="bell"></i></div>
+      <h2>연쇄반응 공작소</h2>
+    </div>
+    <p>바닥에 흩어진 도미노, 구슬, 책, 경사로를 집어서 세워 보세요. 구슬이 굴러가고 도미노가 차례로 쓰러져서 마지막에 종이 울리면 성공이에요.</p>
+    <div class="cards" id="cards"></div>
+  </div>
+</div>
+
+<div class="overlay" id="help" hidden>
+  <div class="sheet">
+    <h2>이렇게 만들어요</h2>
+    <ul class="howto">
+      <li><b>집기</b>부품 상자 속 부품을 톡 누르면 작업대로 나와요. 끌어서 바로 꺼내도 돼요.</li>
+      <li><b>옮기기</b>세운 부품을 손가락으로 끌어요. 블록이나 판자 위로 끌면 그 위에 올라가요.</li>
+      <li><b>돌리기 · 이어 세우기</b>부품을 고르면 아래에 버튼이 나와요. 15°씩 돌리면서 이어 세우면 휘어진 길이 돼요.</li>
+      <li><b>화면 움직이기</b>빈 곳을 한 손가락으로 끌면 돌아가고, 두 손가락으로 벌리면 확대, 함께 끌면 이동해요.</li>
+      <li><b>출발!</b>구슬이 경사로를 굴러 내려가요. 움직이는 중에 부품을 톡 치면 살짝 밀 수 있어요.</li>
+      <li><b>정리하기</b>부품을 아래 부품 상자로 끌어 놓거나 [상자로]를 누르면 다시 들어가요.</li>
+    </ul>
+    <div class="row"><button type="button" class="primary" id="btnHelpClose">알겠어요</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="win" hidden>
+  <div class="sheet win">
+    <p class="big">땡! 성공!</p>
+    <p id="winText">종이 울렸어요.</p>
+    <div class="stats">
+      <div><span>사용한 부품</span><strong id="winParts">0개</strong></div>
+      <div><span>종이 울릴 때까지</span><strong id="winTime">0.0초</strong></div>
+    </div>
+    <div class="row">
+      <button type="button" id="btnWinMenu">처음 화면</button>
+      <button type="button" id="btnWinFix">장치 다시 고치기</button>
+      <button type="button" class="primary" id="btnWinNext">다음 미션</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="loading">
+  <div class="spin" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div id="loadingText">공작소 문을 여는 중…</div>
+</div>
+
+<script>
+  setTimeout(function () {
+    if (!window.__workshopReady) {
+      var t = document.getElementById('loadingText');
+      if (t) t.textContent = '게임을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.';
+    }
+  }, 20000);
+</script>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import RAPIER from 'https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.12.0/rapier.es.js';
+
+const $ = id => document.getElementById(id);
+const DEG = Math.PI / 180;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ================= parts & physics spec (tuned in simulation) ================= */
+const SPEC = {
+  domino: { t: 0.16, h: 1.0, w: 0.5, dens: 3 },
+  book:   { t: 0.3, h: 1.6, w: 1.1, dens: 1.5 },
+  ball:   { r: 0.3, dens: 8 },
+  ramp:   { L: 4, W: 1.2, t: 0.1, ang: 16 * DEG, rh: 0.22, rt: 0.08 },
+  block:  { x: 1.5, y: 1.0, z: 1.5 },
+  plank:  { x: 4.0, y: 0.2, z: 1.2 },
+  wall:   { x: 0.4, y: 1.4, z: 8 },
+  bell:   {}
+};
+const NAMES = { domino: '도미노', book: '책', ball: '구슬', ramp: '경사로', block: '나무 블록', plank: '긴 판자', bell: '종', wall: '벽' };
+const SPACING = { domino: 0.6, book: 1.1, ball: 0.8, ramp: 4.2, block: 1.55, plank: 4.1, bell: 1.5 };
+const RING = { domino: 0.45, book: 0.75, ball: 0.42, ramp: 2.3, block: 1.1, plank: 2.2, bell: 0.55 };
+const isDyn = t => t === 'domino' || t === 'book' || t === 'ball';
+
+function rampGeo() {
+  const R = SPEC.ramp, c = Math.cos(R.ang), s = Math.sin(R.ang);
+  const hc = R.L / 2 * s + R.t / 2 * c;
+  const rot = (u, v) => [u * c + v * s, -u * s + v * c + hc];
+  const uLeg = -R.L / 2 + 0.25;
+  const legTop = rot(uLeg, -R.t / 2)[1];
+  return { c, s, hc, rot, uLeg, legTop };
+}
+function ballOnRamp() {
+  const R = SPEC.ramp, g = rampGeo();
+  const p = g.rot(-R.L / 2 + 0.55, R.t / 2 + SPEC.ball.r + 0.01);
+  return { x: p[0], y: p[1] };
+}
+function baseOffset(type) {
+  switch (type) {
+    case 'domino': return SPEC.domino.h / 2;
+    case 'book': return SPEC.book.h / 2;
+    case 'ball': return SPEC.ball.r;
+    case 'block': return SPEC.block.y / 2;
+    case 'plank': return SPEC.plank.y / 2;
+    case 'wall': return SPEC.wall.y / 2;
+    default: return 0;
+  }
+}
+const qY = a => ({ x: 0, y: Math.sin(a / 2), z: 0, w: Math.cos(a / 2) });
+const qZ = a => ({ x: 0, y: 0, z: Math.sin(a / 2), w: Math.cos(a / 2) });
+
+function makeBody(w, p) {
+  const R = RAPIER, S = SPEC[p.type];
+  const dyn = isDyn(p.type);
+  const desc = (dyn ? R.RigidBodyDesc.dynamic() : R.RigidBodyDesc.fixed())
+    .setTranslation(p.x, p.sy + baseOffset(p.type), p.z).setRotation(qY(p.rot));
+  if (p.type === 'ball') desc.setCcdEnabled(true).setLinearDamping(0.05).setAngularDamping(0.1);
+  if (dyn) desc.setCanSleep(false);
+  const b = w.createRigidBody(desc);
+  const cols = [];
+  const add = cd => { const c = w.createCollider(cd, b); cols.push(c); return c; };
+  if (p.type === 'domino' || p.type === 'book') {
+    add(R.ColliderDesc.cuboid(S.t / 2, S.h / 2, S.w / 2).setDensity(S.dens).setFriction(0.8).setRestitution(0));
+  } else if (p.type === 'ball') {
+    add(R.ColliderDesc.ball(S.r).setDensity(S.dens).setFriction(0.6).setRestitution(0.15));
+  } else if (p.type === 'block' || p.type === 'plank' || p.type === 'wall') {
+    add(R.ColliderDesc.cuboid(S.x / 2, S.y / 2, S.z / 2).setFriction(0.7));
+  } else if (p.type === 'ramp') {
+    const g = rampGeo(), q = qZ(-S.ang);
+    add(R.ColliderDesc.cuboid(S.L / 2, S.t / 2, S.W / 2 + S.rt).setTranslation(0, g.hc, 0).setRotation(q).setFriction(0.6));
+    const rc = g.rot(0, S.t / 2 + S.rh / 2);
+    for (const sz of [-1, 1]) add(R.ColliderDesc.cuboid(S.L / 2, S.rh / 2, S.rt / 2).setTranslation(rc[0], rc[1], sz * (S.W / 2 + S.rt / 2)).setRotation(q).setFriction(0.3));
+    const bk = g.rot(-S.L / 2 + 0.04, S.t / 2 + 0.2);
+    add(R.ColliderDesc.cuboid(0.04, 0.2, S.W / 2).setTranslation(bk[0], bk[1], 0).setRotation(q));
+    const lx = g.rot(g.uLeg, 0)[0];
+    add(R.ColliderDesc.cuboid(0.12, g.legTop / 2, S.W / 2 + S.rt).setTranslation(lx, g.legTop / 2, 0));
+  } else if (p.type === 'bell') {
+    add(R.ColliderDesc.cuboid(0.35, 0.06, 0.35).setTranslation(0, 0.06, 0));
+    add(R.ColliderDesc.cuboid(0.06, 0.5, 0.06).setTranslation(0, 0.6, 0));
+    add(R.ColliderDesc.ball(0.34).setTranslation(0, 1.18, 0));
+  }
+  for (const c of cols) c.setActiveEvents(R.ActiveEvents.COLLISION_EVENTS);
+  return { body: b, cols };
+}
+
+/* ================= missions ================= */
+function rampWithBall(x, z, rot = 0) {
+  const bp = ballOnRamp(), c = Math.cos(rot), s = Math.sin(rot);
+  return [
+    { type: 'ramp', x, z, sy: 0, rot },
+    { type: 'ball', x: x + bp.x * c, z: z - bp.x * s, sy: bp.y - SPEC.ball.r, rot }
+  ];
+}
+const MISSIONS = [
+  {
+    key: 'm1', label: '미션 1', title: '첫 번째 연쇄',
+    card: '도미노 길을 휘게 만들어서 옆에 있는 종을 울려요.',
+    goal: '구슬이 도미노를 쓰러뜨리고, 마지막 도미노가 종을 치게 만들어요.',
+    tip: '도미노를 고르고 [이어 세우기]를 누르면 앞쪽에 하나씩 줄을 세워요. 돌린 다음 이어 세우면 길이 휘어요.',
+    fixed: [...rampWithBall(-8, 0), { type: 'bell', x: 7.2, z: 3.7, sy: 0, rot: 0 }],
+    pile: { domino: 26 }, seed: 11
+  },
+  {
+    key: 'm2', label: '미션 2', title: '벽을 돌아서',
+    card: '구슬 앞을 막은 벽 끝을 돌아가는 긴 도미노 길을 만들어요.',
+    goal: '벽 너머에 있는 종을 울려요. 도미노 길을 벽 끝으로 돌려 보세요.',
+    tip: '벽에 너무 붙이면 도미노가 걸려요. 벽 끝에서 한 칸 넉넉히 떨어져서 돌아가요.',
+    fixed: [...rampWithBall(-8, 0), { type: 'wall', x: 1, z: -1, sy: 0, rot: 0 }, { type: 'bell', x: 5, z: 0, sy: 0, rot: 0 }],
+    pile: { domino: 46 }, seed: 23
+  },
+  {
+    key: 'm3', label: '미션 3', title: '작은 힘, 큰 힘',
+    card: '도미노만으로는 모자라요. 작은 도미노로 큰 책을 쓰러뜨려요.',
+    goal: '종이 멀리 있어요. 도미노 다음에 큰 책을 이어서 종까지 닿게 해요.',
+    tip: '작은 도미노도 큰 책을 쓰러뜨릴 수 있어요. 책은 도미노보다 넓게(이어 세우기 간격 그대로) 세워요.',
+    fixed: [...rampWithBall(-9, -5), { type: 'bell', x: 5.8, z: 4, sy: 0, rot: 0 }],
+    pile: { domino: 14, book: 6 }, seed: 37
+  }
+];
+const FREE = {
+  key: 'free', label: '자유 제작', title: '나만의 연쇄 장치',
+  goal: '구슬을 경사로 꼭대기에 올리고 출발! 종이 울리면 성공이에요.',
+  tip: '구슬을 경사로 위로 끌어 놓으면 꼭대기에 올라가요. 아래 버튼으로 부품을 더 꺼낼 수 있어요.',
+  fixed: [], pile: { domino: 30, book: 4, ball: 2, ramp: 2, block: 3, plank: 2, bell: 1 }, seed: 5, free: true
+};
+
+/* ================= renderer & scene ================= */
+const canvas = $('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#bfe0f2');
+scene.fog = new THREE.Fog('#bfe0f2', 48, 95);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+
+scene.add(new THREE.HemisphereLight('#ffffff', '#b98f5c', 1.15));
+const sun = new THREE.DirectionalLight('#fff4e0', 2.1);
+sun.position.set(9, 22, 12);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -17, right: 17, top: 17, bottom: -17, near: 1, far: 60 });
+sun.shadow.bias = -0.0006;
+sun.shadow.normalBias = 0.02;
+scene.add(sun);
+
+try { await Promise.race([document.fonts.load('64px Jua'), new Promise(r => setTimeout(r, 2500))]); } catch (_) {}
+function canvasTex(w, h, draw, repeat) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat); }
+  return t;
+}
+// wooden floor
+const floorTex = canvasTex(512, 512, (g, w, h) => {
+  const tones = ['#e7c494', '#e1bb88', '#ebcb9e', '#dcb47f'];
+  for (let i = 0; i < 8; i++) {
+    g.fillStyle = tones[i % 4]; g.fillRect(0, i * 64, w, 64);
+    g.strokeStyle = 'rgba(120,80,40,0.10)'; g.lineWidth = 1;
+    for (let k = 0; k < 6; k++) { g.beginPath(); const y = i * 64 + 8 + k * 9 + Math.sin(k + i) * 3; g.moveTo(0, y); g.bezierCurveTo(w * 0.3, y + 4, w * 0.6, y - 4, w, y + 2); g.stroke(); }
+    g.fillStyle = 'rgba(110,70,35,0.35)'; g.fillRect(0, i * 64, w, 2);
+    g.fillRect(((i * 197) % 400) + 40, i * 64, 2, 64);
+  }
+}, 12);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.85 }));
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// parts box (the pile zone) near the player
+const PILE = { x0: -10.5, x1: 10.5, z0: 8.8, z1: 12.6 };
+const inPileZone = (x, z) => z > PILE.z0 - 0.3 && x > PILE.x0 - 0.6 && x < PILE.x1 + 0.6;
+const trayGroup = new THREE.Group();
+{
+  const W = PILE.x1 - PILE.x0 + 0.6, D = PILE.z1 - PILE.z0 + 0.6;
+  const cx = (PILE.x0 + PILE.x1) / 2, cz = (PILE.z0 + PILE.z1) / 2;
+  const trayTex = canvasTex(1024, 192, (g, w, h) => {
+    g.fillStyle = '#5b8fd1'; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(255,255,255,0.10)';
+    for (let x = -h; x < w; x += 46) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + h, 0); g.lineTo(x + h + 18, 0); g.lineTo(x + 18, h); g.fill(); }
+    g.font = '64px Jua, "Malgun Gothic", sans-serif'; g.fillStyle = 'rgba(255,255,255,0.85)';
+    g.textBaseline = 'middle'; g.fillText('부품 상자', 34, h / 2);
+  });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(W, 0.06, D), new THREE.MeshStandardMaterial({ map: trayTex, roughness: 0.9 }));
+  base.position.set(cx, 0.03, cz); base.receiveShadow = true;
+  trayGroup.add(base);
+  const rimMat = new THREE.MeshStandardMaterial({ color: '#2b5aa0', roughness: 0.7 });
+  const rims = [[W, 0.28, 0.14, cx, cz - D / 2], [W, 0.28, 0.14, cx, cz + D / 2], [0.14, 0.28, D, cx - W / 2, cz], [0.14, 0.28, D, cx + W / 2, cz]];
+  for (const [a, b, c, x, z] of rims) { const m = new THREE.Mesh(new THREE.BoxGeometry(a, b, c), rimMat); m.position.set(x, 0.14, z); m.castShadow = m.receiveShadow = true; trayGroup.add(m); }
+  trayGroup.userData.base = base;
+  scene.add(trayGroup);
+}
+function setTrayHot(on) { trayGroup.userData.base.material.emissive.setHex(on ? 0x2a3a10 : 0x000000); }
+
+/* ================= meshes ================= */
+const geoCache = new Map();
+const boxGeo = (x, y, z) => { const k = `b${x},${y},${z}`; if (!geoCache.has(k)) geoCache.set(k, new THREE.BoxGeometry(x, y, z)); return geoCache.get(k); };
+const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, ...o });
+function mesh(geo, m) { const ms = new THREE.Mesh(geo, m); ms.castShadow = true; ms.receiveShadow = true; return ms; }
+const DOMINO_COLORS = ['#e8483b', '#f5b82e', '#2f7de1', '#2fae66', '#f4f4f0', '#8b5cf6'];
+const BOOK_COLORS = ['#c0392b', '#1f6f8b', '#2e8b57', '#7b4fa0', '#d17b0f', '#334e9e'];
+let colorIdx = 0;
+
+function buildMesh(p) {
+  const g = new THREE.Group();
+  const S = SPEC[p.type];
+  if (p.type === 'domino') {
+    const c = DOMINO_COLORS[colorIdx++ % DOMINO_COLORS.length];
+    g.add(mesh(boxGeo(S.t, S.h, S.w), mat(c, { roughness: 0.4 })));
+    const line = mesh(boxGeo(S.t + 0.006, 0.03, S.w * 0.8), mat('#1b2340'));
+    g.add(line);
+  } else if (p.type === 'book') {
+    const c = BOOK_COLORS[colorIdx++ % BOOK_COLORS.length];
+    const cover = mat(c, { roughness: 0.6 }), paper = mat('#f3eee2', { roughness: 0.9 });
+    // faces: +x,-x,+y,-y,+z,-z (covers on ±x, spine on -z)
+    g.add(mesh(boxGeo(S.t, S.h, S.w), [cover, cover, paper, paper, paper, cover]));
+    const band = mesh(boxGeo(S.t + 0.01, 0.12, 0.06), mat('#f5b82e'));
+    band.position.set(0, S.h * 0.3, -S.w / 2 + 0.02); g.add(band);
+  } else if (p.type === 'ball') {
+    const colors = [['#e8483b', '#ffffff'], ['#2f7de1', '#ffffff'], ['#2fae66', '#f5b82e']][colorIdx++ % 3];
+    const a = mesh(new THREE.SphereGeometry(S.r, 28, 16, 0, Math.PI), mat(colors[0], { roughness: 0.18, metalness: 0.05 }));
+    const b = mesh(new THREE.SphereGeometry(S.r, 28, 16, Math.PI, Math.PI), mat(colors[1], { roughness: 0.18, metalness: 0.05 }));
+    g.add(a, b);
+  } else if (p.type === 'ramp') {
+    const R = S, gg = rampGeo(), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -R.ang);
+    const wood = mat('#e2b77a', { roughness: 0.75 }), rail = mat('#2f7de1', { roughness: 0.45 });
+    const board = mesh(boxGeo(R.L, R.t, R.W + 2 * R.rt), wood); board.position.set(0, gg.hc, 0); board.quaternion.copy(q); g.add(board);
+    const rc = gg.rot(0, R.t / 2 + R.rh / 2);
+    for (const sz of [-1, 1]) { const r = mesh(boxGeo(R.L, R.rh, R.rt), rail); r.position.set(rc[0], rc[1], sz * (R.W / 2 + R.rt / 2)); r.quaternion.copy(q); g.add(r); }
+    const bk = gg.rot(-R.L / 2 + 0.04, R.t / 2 + 0.2);
+    const back = mesh(boxGeo(0.08, 0.4, R.W), rail); back.position.set(bk[0], bk[1], 0); back.quaternion.copy(q); g.add(back);
+    const lx = gg.rot(gg.uLeg, 0)[0];
+    const leg = mesh(boxGeo(0.24, gg.legTop, R.W + 2 * R.rt), mat('#c99a5b', { roughness: 0.8 })); leg.position.set(lx, gg.legTop / 2, 0); g.add(leg);
+    const mx = gg.rot(-0.3, 0);
+    const midH = gg.rot(-0.3, -R.t / 2)[1];
+    const leg2 = mesh(boxGeo(0.16, midH, R.W * 0.5), mat('#c99a5b', { roughness: 0.8 })); leg2.position.set(mx[0], midH / 2, 0); g.add(leg2);
+  } else if (p.type === 'block' || p.type === 'plank' || p.type === 'wall') {
+    const color = p.type === 'block' ? '#d99a5a' : p.type === 'plank' ? '#ebc58c' : '#8a95b5';
+    const b = mesh(boxGeo(S.x, S.y, S.z), mat(color, { roughness: 0.8 }));
+    g.add(b);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(b.geometry), new THREE.LineBasicMaterial({ color: '#1b2340', transparent: true, opacity: 0.35 }));
+    edges.raycast = () => {};
+    g.add(edges);
+    if (p.type === 'wall') {
+      const stripe = mesh(boxGeo(S.x + 0.02, 0.18, S.z + 0.02), mat('#f5b82e', { roughness: 0.6 }));
+      stripe.position.y = S.y / 2 - 0.2; g.add(stripe);
+    }
+  } else if (p.type === 'bell') {
+    const dark = mat('#2b3456', { roughness: 0.5 }), gold = mat('#f2b705', { roughness: 0.28, metalness: 0.55 });
+    const base = mesh(new THREE.CylinderGeometry(0.4, 0.44, 0.12, 28), dark); base.position.y = 0.06; g.add(base);
+    const post = mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.0, 12), dark); post.position.y = 0.6; g.add(post);
+    const head = new THREE.Group(); head.position.y = 1.48;
+    const prof = [[0.001, 0.0], [0.08, -0.01], [0.17, -0.07], [0.22, -0.18], [0.25, -0.32], [0.33, -0.46], [0.38, -0.52], [0.36, -0.55], [0.001, -0.5]].map(([x, y]) => new THREE.Vector2(x, y));
+    const bellM = mesh(new THREE.LatheGeometry(prof, 32), gold); bellM.material.side = THREE.DoubleSide; head.add(bellM);
+    const knob = mesh(new THREE.SphereGeometry(0.07, 12, 10), gold); knob.position.y = 0.03; head.add(knob);
+    const clap = mesh(new THREE.SphereGeometry(0.07, 12, 10), dark); clap.position.y = -0.5; head.add(clap);
+    g.add(head);
+    g.userData.head = head;
+    // flag that rises on success
+    const flag = new THREE.Group(); flag.position.set(0.55, 0, 0); flag.visible = false;
+    const pole = mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.4, 8), mat('#1b2340')); pole.position.y = 1.2; flag.add(pole);
+    const ftex = canvasTex(256, 160, (c, w, h) => {
+      c.fillStyle = '#ffc533'; c.fillRect(0, 0, w, h);
+      c.strokeStyle = '#1b2340'; c.lineWidth = 12; c.strokeRect(6, 6, w - 12, h - 12);
+      c.fillStyle = '#1b2340'; c.font = '78px Jua, "Malgun Gothic", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('성공!', w / 2, h / 2 + 4);
+    });
+    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.62), new THREE.MeshStandardMaterial({ map: ftex, side: THREE.DoubleSide, roughness: 0.8 }));
+    cloth.position.set(0.52, 0.4, 0); cloth.castShadow = true;
+    flag.add(cloth);
+    g.add(flag);
+    g.userData.flag = flag; g.userData.cloth = cloth;
+  }
+  g.traverse(o => { if (o.isMesh) o.userData.part = p; });
+  g.userData.part = p;
+  return g;
+}
+
+/* ================= game state ================= */
+let parts = [], nextId = 1, mode = 'menu', current = MISSIONS[0];
+let sel = null;
+let rng = Math.random;
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const V3 = THREE.Vector3, UP = new V3(0, 1, 0), ZAX = new V3(0, 0, 1);
+
+function addPart(type, o = {}) {
+  const p = { id: nextId++, type, state: o.state || 'pile', x: o.x || 0, z: o.z || 0, sy: o.sy || 0, rot: o.rot || 0, locked: !!o.locked };
+  p.mesh = buildMesh(p);
+  scene.add(p.mesh);
+  parts.push(p);
+  if (p.state === 'pile') scatterToPile(p, o.nearX); else applyPose(p);
+  return p;
+}
+function clearParts() {
+  for (const p of parts) {
+    scene.remove(p.mesh);
+    p.mesh.traverse(o => { if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); });
+  }
+  parts = []; sel = null; colorIdx = 0;
+}
+function applyPose(p, lift = 0) {
+  if (p.state === 'pile') { p.mesh.position.copy(p.pileP); p.mesh.quaternion.copy(p.pileQ); return; }
+  p.mesh.position.set(p.x, p.sy + baseOffset(p.type) + lift, p.z);
+  p.mesh.quaternion.setFromAxisAngle(UP, p.rot);
+}
+function scatterToPile(p, nearX) {
+  p.state = 'pile';
+  const long = p.type === 'ramp' || p.type === 'plank';
+  const span = PILE.x1 - PILE.x0 - (long ? 5 : 1.4);
+  const x = nearX != null ? clamp(nearX + (rng() - 0.5) * 3, PILE.x0 + (long ? 2.5 : 0.7), PILE.x1 - (long ? 2.5 : 0.7)) : PILE.x0 + (long ? 2.5 : 0.7) + rng() * span;
+  const z = PILE.z0 + 0.8 + rng() * (PILE.z1 - PILE.z0 - 1.6);
+  const yaw = long ? (rng() - 0.5) * 0.35 + (rng() < 0.5 ? 0 : Math.PI) : rng() * Math.PI * 2;
+  const q = new THREE.Quaternion().setFromAxisAngle(UP, yaw);
+  let y = 0.06;
+  if (p.type === 'domino' || p.type === 'book') { q.multiply(new THREE.Quaternion().setFromAxisAngle(ZAX, Math.PI / 2)); y += SPEC[p.type].t / 2 + rng() * 0.05; }
+  else if (p.type === 'ball') y += SPEC.ball.r;
+  else if (p.type === 'block') y += 0.5;
+  else if (p.type === 'plank') y += 0.1;
+  else if (p.type === 'bell') { q.multiply(new THREE.Quaternion().setFromAxisAngle(ZAX, Math.PI / 2)); y += 0.42; }
+  p.pileP = new V3(x, y, z); p.pileQ = q;
+  applyPose(p);
+}
+function takeFromPile(p) { p.state = 'placed'; p.rot = 0; p.sy = 0; }
+function freeSpot() {
+  const t = cam.target;
+  for (let i = 0; i < 90; i++) {
+    const a = i * 2.39996, rr = 0.75 * Math.sqrt(i);
+    const x = t.x + Math.cos(a) * rr, z = clamp(t.z - 1.5, -9, 6) + Math.sin(a) * rr;
+    if (inPileZone(x, z)) continue;
+    if (parts.every(q => q.state !== 'placed' || Math.hypot(q.x - x, q.z - z) > (q.type === 'ramp' || q.type === 'plank' || q.type === 'wall' ? 2.8 : 1.1))) return { x, z };
+  }
+  return { x: t.x, z: Math.min(t.z, 6) };
+}
+const supportRay = new THREE.Raycaster();
+function supportAt(p, x, z) {
+  const cands = parts.filter(q => q !== p && q.state === 'placed' && (q.type === 'block' || q.type === 'plank' || (p.type === 'ball' && q.type === 'ramp')));
+  if (!cands.length) return 0;
+  cands.forEach(q => q.mesh.updateMatrixWorld(true));
+  supportRay.set(new V3(x, 40, z), new V3(0, -1, 0));
+  const hits = supportRay.intersectObjects(cands.map(q => q.mesh), true);
+  return hits.length ? Math.max(0, hits[0].point.y) : 0;
+}
+
+/* ================= selection marker ================= */
+const marker = new THREE.Group();
+{
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 48), new THREE.MeshBasicMaterial({ color: '#ffc533', transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2;
+  marker.add(ring); marker.userData.ring = ring;
+  const sh = new THREE.Shape(); sh.moveTo(0, 0.28); sh.lineTo(0.42, 0); sh.lineTo(0, -0.28); sh.lineTo(0.1, 0); sh.closePath();
+  const arrow = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: '#1b2340', depthWrite: false, side: THREE.DoubleSide }));
+  arrow.rotation.x = -Math.PI / 2;
+  marker.add(arrow); marker.userData.arrow = arrow;
+  marker.visible = false; marker.renderOrder = 2;
+  scene.add(marker);
+}
+function updateMarker(lift = 0) {
+  if (!sel || sel.state !== 'placed' || mode !== 'build') { marker.visible = false; return; }
+  const R = RING[sel.type] || 0.6;
+  marker.visible = true;
+  marker.userData.ring.scale.set(R, R, 1);
+  marker.userData.arrow.position.set(R + 0.18, 0, 0);
+  marker.position.set(sel.x, sel.sy + 0.04 + lift * 0.2, sel.z);
+  marker.rotation.y = sel.rot;
+}
+function setGlow(p, on) {
+  p.mesh.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => { if (m.emissive) m.emissive.setHex(on ? 0x4a3800 : 0x000000); }); });
+}
+function select(p) {
+  if (sel && sel !== p) setGlow(sel, false);
+  sel = p;
+  if (p) setGlow(p, true);
+  updateMarker(); updateToolbar();
+}
+
+/* ================= camera ================= */
+const cam = { target: new V3(0, 0, 2.6), r: 26, az: 0, el: 0.96 };
+function resetCam() {
+  const portrait = window.innerWidth / window.innerHeight < 0.9;
+  cam.target.set(0, 0, portrait ? 4.2 : 2.6); cam.r = portrait ? 37 : 26; cam.az = 0; cam.el = portrait ? 1.08 : 0.96;
+}
+function updateCam() {
+  const ce = Math.cos(cam.el);
+  camera.position.set(cam.target.x + cam.r * ce * Math.sin(cam.az), cam.r * Math.sin(cam.el), cam.target.z + cam.r * ce * Math.cos(cam.az));
+  camera.lookAt(cam.target);
+}
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.fov = w / h < 0.9 ? 58 : 42;
+  camera.updateProjectionMatrix();
+  confettiCanvas.width = w * Math.min(2, window.devicePixelRatio || 1);
+  confettiCanvas.height = h * Math.min(2, window.devicePixelRatio || 1);
+}
+
+/* ================= input ================= */
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new V3(0, 1, 0), 0);
+function setRay(cx, cy) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+}
+function pick(cx, cy, filter) {
+  setRay(cx, cy);
+  const list = parts.filter(filter || (() => true)).map(p => p.mesh);
+  const hits = raycaster.intersectObjects(list, true);
+  for (const h of hits) { let o = h.object; while (o && !o.userData.part) o = o.parent; if (o) return { part: o.userData.part, point: h.point }; }
+  return null;
+}
+function groundAt(cx, cy) { setRay(cx, cy); const v = new V3(); return raycaster.ray.intersectPlane(groundPlane, v) ? v : null; }
+
+const ptrs = new Map();
+let gesture = null;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => {
+  initAudio();
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+  if (ptrs.size === 2) {
+    if (gesture && gesture.kind === 'part' && gesture.moved) finishPartDrag(false);
+    const [a, b] = [...ptrs.values()];
+    gesture = { kind: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    return;
+  }
+  if (ptrs.size > 2) return;
+  if (mode === 'build') {
+    const h = pick(e.clientX, e.clientY);
+    if (h && !h.part.locked) { gesture = { kind: 'part', part: h.part, moved: false, sx: e.clientX, sy: e.clientY, fromPile: h.part.state === 'pile', touch: e.pointerType !== 'mouse' }; return; }
+    gesture = { kind: 'orbit', moved: false, sx: e.clientX, sy: e.clientY, lockedHit: h ? h.part : null };
+  } else if (mode === 'run') {
+    const h = pick(e.clientX, e.clientY, p => p.state === 'placed' && isDyn(p.type) && p.body);
+    if (h) poke(h.part, h.point);
+    gesture = { kind: 'orbit', moved: false, sx: e.clientX, sy: e.clientY };
+  } else gesture = { kind: 'orbit', moved: false, sx: e.clientX, sy: e.clientY };
+});
+canvas.addEventListener('pointermove', e => {
+  const pt = ptrs.get(e.pointerId); if (!pt) return;
+  const dx = e.clientX - pt.x, dy = e.clientY - pt.y;
+  pt.x = e.clientX; pt.y = e.clientY;
+  if (!gesture) return;
+  if (gesture.kind === 'pinch' && ptrs.size >= 2) {
+    const [a, b] = [...ptrs.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    if (gesture.d > 0 && d > 0) cam.r = clamp(cam.r * gesture.d / d, 9, 44);
+    const k = cam.r * 0.0016;
+    const right = new V3(Math.cos(cam.az), 0, -Math.sin(cam.az)), fwd = new V3(-Math.sin(cam.az), 0, -Math.cos(cam.az));
+    cam.target.addScaledVector(right, -(mx - gesture.mx) * k).addScaledVector(fwd, (my - gesture.my) * k);
+    cam.target.x = clamp(cam.target.x, -14, 14); cam.target.z = clamp(cam.target.z, -12, 12);
+    gesture.d = d; gesture.mx = mx; gesture.my = my;
+    return;
+  }
+  if (gesture.kind === 'orbit') {
+    if (!gesture.moved && Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy) > 6) gesture.moved = true;
+    if (gesture.moved) { cam.az -= dx * 0.006; cam.el = clamp(cam.el + dy * 0.005, 0.3, 1.45); }
+    return;
+  }
+  if (gesture.kind === 'part') {
+    const p = gesture.part;
+    if (!gesture.moved) {
+      if (Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy) < 8) return;
+      gesture.moved = true;
+      if (gesture.fromPile) { takeFromPile(p); gesture.off = { x: 0, z: 0 }; }
+      else { const g0 = groundAt(gesture.sx, gesture.sy - (gesture.touch ? 0 : 0)); gesture.off = g0 ? { x: p.x - g0.x, z: p.z - g0.z } : { x: 0, z: 0 }; }
+      select(p);
+    }
+    const g = groundAt(e.clientX, e.clientY - (gesture.touch && gesture.fromPile ? 50 : 0));
+    if (!g) return;
+    p.x = clamp(g.x + gesture.off.x, -14, 14);
+    p.z = clamp(g.z + gesture.off.z, -11, 13);
+    gesture.overPile = inPileZone(p.x, p.z);
+    setTrayHot(gesture.overPile);
+    p.sy = gesture.overPile ? 0 : supportAt(p, p.x, p.z);
+    applyPose(p, 0.3);
+    updateMarker(0.3);
+  }
+});
+function endPointer(e) {
+  ptrs.delete(e.pointerId);
+  if (!gesture) return;
+  if (gesture.kind === 'pinch') { if (ptrs.size < 2) gesture = { kind: 'none' }; return; }
+  if (gesture.kind === 'none') { if (!ptrs.size) gesture = null; return; }
+  if (gesture.kind === 'orbit') {
+    if (!gesture.moved && mode === 'build') {
+      if (gesture.lockedHit) toast(`${NAMES[gesture.lockedHit.type]}은(는) 미션에 고정된 부품이라 움직일 수 없어요`);
+      else select(null);
+    }
+    gesture = null; return;
+  }
+  if (gesture.kind === 'part') {
+    const p = gesture.part;
+    if (!gesture.moved) {
+      if (gesture.fromPile) {
+        takeFromPile(p);
+        const s = freeSpot(); p.x = s.x; p.z = s.z; p.sy = supportAt(p, p.x, p.z);
+        applyPose(p); select(p); updateChips();
+        sfxPop();
+      } else select(sel === p ? null : p);
+    } else finishPartDrag(true);
+    gesture = null;
+  }
+}
+function finishPartDrag(normal) {
+  const g = gesture, p = g.part;
+  setTrayHot(false);
+  if (g.overPile) { scatterToPile(p, p.x); select(null); sfxPop(0.7); }
+  else { applyPose(p); updateMarker(); sfxPop(); }
+  updateChips();
+  if (!normal) gesture = null;
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.r = clamp(cam.r * (1 + e.deltaY * 0.0012), 9, 44); }, { passive: false });
+
+/* ================= HUD ================= */
+const ICONS = {
+  domino: '<svg viewBox="0 0 32 32"><rect x="12" y="4" width="8" height="24" rx="1.5" fill="#e8483b" stroke="#1b2340" stroke-width="2.4"/><line x1="13" y1="16" x2="19" y2="16" stroke="#1b2340" stroke-width="2"/></svg>',
+  book: '<svg viewBox="0 0 32 32"><rect x="8" y="3" width="16" height="26" rx="1.5" fill="#1f6f8b" stroke="#1b2340" stroke-width="2.4"/><rect x="8" y="8" width="16" height="3" fill="#f5b82e"/></svg>',
+  ball: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="10" fill="#2f7de1" stroke="#1b2340" stroke-width="2.4"/><path d="M6.5 16a9.5 9.5 0 0 0 19 0" fill="#fff"/><circle cx="16" cy="16" r="10" fill="none" stroke="#1b2340" stroke-width="2.4"/></svg>',
+  ramp: '<svg viewBox="0 0 32 32"><path d="M3 26 L29 26 L29 10 Z" fill="#e2b77a" stroke="#1b2340" stroke-width="2.4" stroke-linejoin="round"/></svg>',
+  block: '<svg viewBox="0 0 32 32"><rect x="6" y="9" width="20" height="17" rx="1.5" fill="#d99a5a" stroke="#1b2340" stroke-width="2.4"/></svg>',
+  plank: '<svg viewBox="0 0 32 32"><rect x="2" y="13" width="28" height="6" rx="1.5" fill="#ebc58c" stroke="#1b2340" stroke-width="2.4"/></svg>',
+  bell: '<svg viewBox="0 0 32 32"><path d="M16 4c-5 0-7 4-7 9v6l-3 4h20l-3-4v-6c0-5-2-9-7-9z" fill="#f2b705" stroke="#1b2340" stroke-width="2.4" stroke-linejoin="round"/><circle cx="16" cy="26" r="2.5" fill="#1b2340"/></svg>'
+};
+function buildTray() {
+  const tray = $('tray'); tray.innerHTML = '';
+  for (const t of ['domino', 'book', 'ball', 'ramp', 'block', 'plank', 'bell']) {
+    const b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = ICONS[t] + `<span>+ ${NAMES[t]}</span>`;
+    b.addEventListener('click', () => {
+      if (mode !== 'build') return;
+      if (parts.length >= 160) { toast('부품이 너무 많아요. 안 쓰는 부품을 상자로 정리해 주세요'); return; }
+      const p = addPart(t, { state: 'placed' });
+      const s = freeSpot(); p.x = s.x; p.z = s.z; p.sy = supportAt(p, p.x, p.z); applyPose(p);
+      select(p); sfxPop(); updateChips();
+    });
+    tray.appendChild(b);
+  }
+}
+function updateChips() {
+  const chips = $('chips');
+  if (current.free) {
+    const used = parts.filter(p => p.state === 'placed').length;
+    chips.innerHTML = `<span class="label">작업대 위 부품</span><b>${used}개</b>`;
+    return;
+  }
+  const counts = {};
+  for (const p of parts) if (p.state === 'pile') counts[p.type] = (counts[p.type] || 0) + 1;
+  const order = Object.keys(current.pile);
+  chips.innerHTML = '<span class="label">상자에 남은 부품</span>' + order.map(t => `<span>${NAMES[t]} <b>${counts[t] || 0}</b></span>`).join('');
+}
+function updateToolbar() {
+  const show = !!sel && sel.state === 'placed' && mode === 'build';
+  $('toolbar').hidden = !show;
+  if (!show) return;
+  $('selName').textContent = NAMES[sel.type];
+  placeToolbar();
+}
+const tbV = new THREE.Vector3();
+function placeToolbar() {
+  const tb = $('toolbar');
+  if (tb.hidden || !sel) return;
+  const top = sel.type === 'ramp' ? 1.6 : sel.type === 'bell' ? 1.7 : sel.type === 'book' ? 1.7 : sel.type === 'ball' ? 0.7 : 1.2;
+  tbV.set(sel.mesh.position.x, sel.sy + top, sel.mesh.position.z).project(camera);
+  const W = window.innerWidth, H = window.innerHeight;
+  const w = tb.offsetWidth, h = tb.offsetHeight;
+  let x = (tbV.x + 1) / 2 * W - w / 2, y = (1 - tbV.y) / 2 * H - h - 18;
+  const pointY = (1 - tbV.y) / 2 * H;
+  if (y < 130) y = pointY + 70;            // not enough room above: show below the part
+  x = clamp(x, 16, W - w - 16);
+  y = clamp(y, 12, H - h - 96);
+  tb.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+}
+function updateHud() {
+  $('mEyebrow').textContent = current.label;
+  $('mTitle').textContent = current.title;
+  $('mGoal').textContent = current.goal;
+  $('tray').hidden = !current.free;
+  const go = $('btnGo');
+  go.textContent = mode === 'run' ? '다시 고치기' : '출발!';
+  go.classList.toggle('fix', mode === 'run');
+  $('btnSlow').hidden = mode !== 'run';
+  $('btnReset').hidden = mode === 'run';
+  updateChips(); updateToolbar();
+}
+let toastTimer = 0;
+function toast(msg, ms = 2400) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+$('btnRotL').addEventListener('click', () => rotateSel(15));
+$('btnRotR').addEventListener('click', () => rotateSel(-15));
+function rotateSel(deg) { if (!sel) return; sel.rot += deg * DEG; applyPose(sel); updateMarker(); sfxPop(0.5); }
+$('btnDup').addEventListener('click', () => {
+  if (!sel || mode !== 'build') return;
+  const t = sel.type;
+  let n = parts.find(q => q.type === t && q.state === 'pile');
+  if (!n) {
+    if (!current.free) { toast(`상자에 남은 ${NAMES[t]}이(가) 없어요`); return; }
+    if (parts.length >= 160) { toast('부품이 너무 많아요. 안 쓰는 부품을 상자로 정리해 주세요'); return; }
+    n = addPart(t, { state: 'placed' });
+  }
+  n.state = 'placed';
+  n.rot = sel.rot;
+  const d = SPACING[t];
+  n.x = clamp(sel.x + Math.cos(sel.rot) * d, -14, 14);
+  n.z = clamp(sel.z - Math.sin(sel.rot) * d, -11, 8.2);
+  n.sy = supportAt(n, n.x, n.z);
+  applyPose(n); select(n); updateChips(); sfxPop();
+});
+$('btnBox').addEventListener('click', () => { if (!sel) return; scatterToPile(sel, sel.x); select(null); updateChips(); sfxPop(0.7); });
+let resetArmed = 0;
+$('btnReset').addEventListener('click', () => {
+  if (mode !== 'build') return;
+  const btn = $('btnReset');
+  if (Date.now() - resetArmed > 2500) { resetArmed = Date.now(); btn.textContent = '한 번 더 누르면 정리'; setTimeout(() => { btn.textContent = '모두 정리'; }, 2500); return; }
+  resetArmed = 0; btn.textContent = '모두 정리';
+  for (const p of parts) if (!p.locked && p.state === 'placed') scatterToPile(p, p.x);
+  select(null); updateChips(); toast('부품을 모두 상자에 넣었어요');
+});
+$('btnCam').addEventListener('click', resetCam);
+$('btnMenu').addEventListener('click', openMenu);
+$('btnHelp').addEventListener('click', () => { $('help').hidden = false; });
+$('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; seenHelp(); });
+$('btnGo').addEventListener('click', () => { initAudio(); if (mode === 'build') startRun(); else if (mode === 'run') stopRun(); });
+$('btnSlow').addEventListener('click', () => {
+  slow = !slow; $('btnSlow').setAttribute('aria-pressed', String(slow));
+  $('btnSlow').textContent = slow ? '보통 속도' : '느리게';
+});
+$('btnWinMenu').addEventListener('click', () => { $('win').hidden = true; openMenu(); });
+$('btnWinFix').addEventListener('click', () => { $('win').hidden = true; stopRun(); });
+$('btnWinNext').addEventListener('click', () => {
+  $('win').hidden = true;
+  const i = MISSIONS.indexOf(current);
+  if (current.free) stopRun();
+  else if (i >= 0 && i < MISSIONS.length - 1) loadMode(MISSIONS[i + 1]);
+  else loadMode(FREE);
+});
+
+/* ================= storage (per-viewer convenience) ================= */
+function getCleared() { try { return JSON.parse(localStorage.getItem('chainWorkshop.cleared') || '{}'); } catch (_) { return {}; } }
+function setCleared(k) { try { const c = getCleared(); c[k] = true; localStorage.setItem('chainWorkshop.cleared', JSON.stringify(c)); } catch (_) {} }
+function helpSeen() { try { return localStorage.getItem('chainWorkshop.help') === '1'; } catch (_) { return false; } }
+function seenHelp() { try { localStorage.setItem('chainWorkshop.help', '1'); } catch (_) {} }
+
+/* ================= menu / mode loading ================= */
+function openMenu() {
+  if (mode === 'run') stopRun();
+  mode = 'menu'; select(null);
+  $('hud').hidden = true; $('win').hidden = true; $('help').hidden = true;
+  const cleared = getCleared();
+  const cards = $('cards'); cards.innerHTML = '';
+  for (const m of [...MISSIONS, FREE]) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'card' + (m.free ? ' free' : '');
+    b.innerHTML = `<span class="k">${m.free ? '부품 무제한' : m.label}${cleared[m.key] ? '<span class="done">완료</span>' : ''}</span><span class="t">${m.free ? '자유 제작' : m.title}</span><span class="d">${m.free ? '부품을 마음껏 꺼내서 나만의 연쇄 장치를 만들어요.' : m.card}</span>`;
+    b.addEventListener('click', () => { initAudio(); loadMode(m); });
+    cards.appendChild(b);
+  }
+  $('menu').hidden = false;
+}
+function loadMode(m) {
+  if (world) stopRun();
+  clearParts();
+  current = m; rng = mulberry32(m.seed);
+  for (const f of m.fixed) addPart(f.type, { ...f, state: 'placed', locked: true });
+  for (const [t, n] of Object.entries(m.pile)) for (let i = 0; i < n; i++) addPart(t);
+  mode = 'build'; resetCam(); select(null);
+  $('menu').hidden = true; $('win').hidden = true; $('hud').hidden = false;
+  updateHud();
+  if (!helpSeen()) $('help').hidden = false;
+  else toast(m.tip, 4200);
+}
+
+/* ================= running the machine ================= */
+let world = null, eq = null, colMap = null, runT = 0, acc = 0, slow = false, rungAt = -1, hintShown = false;
+function startRun() {
+  select(null);
+  world = new RAPIER.World({ x: 0, y: -30, z: 0 });
+  world.timestep = 1 / 120;
+  const gb = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+  world.createCollider(RAPIER.ColliderDesc.cuboid(60, 0.5, 60).setTranslation(0, -0.5, 0).setFriction(0.7), gb);
+  eq = new RAPIER.EventQueue(true);
+  colMap = new Map();
+  for (const p of parts) {
+    if (p.state !== 'placed') continue;
+    const r = makeBody(world, p);
+    p.body = r.body;
+    for (const c of r.cols) colMap.set(c.handle, p);
+  }
+  runT = 0; acc = 0; rungAt = -1; hintShown = false;
+  mode = 'run'; updateHud();
+  sfxGo();
+}
+function stopRun() {
+  if (world) { world.free(); world = null; }
+  if (eq) { eq.free(); eq = null; }
+  for (const p of parts) {
+    p.body = null; applyPose(p);
+    if (p.type === 'bell') { p.mesh.userData.flag.visible = false; p.mesh.userData.head.rotation.set(0, 0, 0); p.anim = null; }
+  }
+  mode = 'build'; slow = false; $('btnSlow').setAttribute('aria-pressed', 'false'); $('btnSlow').textContent = '느리게';
+  updateHud();
+}
+function poke(p, point) {
+  const b = p.body; if (!b) return;
+  const dir = new V3().subVectors(point, camera.position); dir.y = 0; dir.normalize();
+  const m = b.mass();
+  const k = m * (p.type === 'ball' ? 5 : 2.2);
+  b.applyImpulseAtPoint({ x: dir.x * k, y: 0, z: dir.z * k }, { x: point.x, y: point.y, z: point.z }, true);
+  click(0.6);
+}
+function physicsStep(dt) {
+  acc += Math.min(dt, 0.05) * (slow ? 0.3 : 1);
+  let n = 0;
+  while (acc >= 1 / 120 && n < 5) {
+    world.step(eq);
+    runT += 1 / 120; acc -= 1 / 120; n++;
+    eq.drainCollisionEvents((h1, h2, started) => {
+      if (!started) return;
+      const a = colMap.get(h1), b = colMap.get(h2);
+      const bell = a && a.type === 'bell' ? a : b && b.type === 'bell' ? b : null;
+      const other = bell === a ? b : a;
+      if (bell && other && isDyn(other.type) && runT > 0.3) { ringBell(bell); return; }
+      if (runT > 0.1) {
+        const mover = (a && isDyn(a.type) && a.body) ? a : (b && isDyn(b.type) && b.body) ? b : null;
+        if (mover) { const v = mover.body.linvel(); click(Math.min(1, Math.hypot(v.x, v.y, v.z) / 5)); }
+      }
+    });
+  }
+  if (n === 5) acc = 0;
+  for (const p of parts) {
+    if (!p.body || !isDyn(p.type)) continue;
+    const t = p.body.translation(), r = p.body.rotation();
+    if (t.y < -30) continue;
+    p.mesh.position.set(t.x, t.y, t.z);
+    p.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+  }
+  if (!hintShown && rungAt < 0 && runT > 14) {
+    hintShown = true;
+    toast('아쉬워요! [다시 고치기]를 눌러서 멈춘 곳을 손봐요', 4000);
+  }
+}
+function ringBell(bell) {
+  const now = performance.now();
+  if (bell.lastRing && now - bell.lastRing < 400) return;
+  bell.lastRing = now;
+  bell.anim = bell.anim || { swing: 0, flag: -1 };
+  bell.anim.swing = 0;
+  sfxBell();
+  if (rungAt >= 0) return;
+  rungAt = runT;
+  bell.anim.flag = 0;
+  bell.mesh.userData.flag.visible = true;
+  setCleared(current.key);
+  setTimeout(() => { if (mode === 'run') { sfxFanfare(); confetti(); } }, 550);
+  setTimeout(() => { if (mode === 'run') showWin(); }, 2300);
+}
+function showWin() {
+  const used = parts.filter(p => p.state === 'placed' && !p.locked).length;
+  $('winParts').textContent = `${used}개`;
+  $('winTime').textContent = `${rungAt.toFixed(1)}초`;
+  const i = MISSIONS.indexOf(current);
+  $('winText').textContent = current.free ? '내가 만든 장치로 종을 울렸어요.' : `${current.label} 「${current.title}」를 해냈어요.`;
+  const next = $('btnWinNext');
+  if (current.free) next.textContent = '계속 만들기';
+  else if (i < MISSIONS.length - 1) next.textContent = '다음 미션';
+  else next.textContent = '자유 제작 하기';
+  $('win').hidden = false;
+}
+
+/* ================= sound ================= */
+let ac = null, noiseBuf = null, lastClick = 0;
+function initAudio() {
+  if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.12, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+  } catch (_) { ac = null; }
+}
+function click(vol = 0.5) {
+  if (!ac || vol < 0.04) return;
+  const now = ac.currentTime;
+  if (now - lastClick < 0.028) return;
+  lastClick = now;
+  const src = ac.createBufferSource(); src.buffer = noiseBuf;
+  const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1600 + Math.random() * 2400; bp.Q.value = 4;
+  const g = ac.createGain(); g.gain.setValueAtTime(0.5 * vol, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+  src.connect(bp).connect(g).connect(ac.destination);
+  src.start(now); src.stop(now + 0.1);
+}
+function tone(freq, start, dur, type = 'sine', vol = 0.2) {
+  if (!ac) return;
+  const t = ac.currentTime + start;
+  const o = ac.createOscillator(); o.type = type; o.frequency.value = freq;
+  const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.05);
+}
+function sfxPop(v = 1) { tone(520 + Math.random() * 120, 0, 0.09, 'triangle', 0.12 * v); }
+function sfxGo() { tone(392, 0, 0.12, 'triangle', 0.15); tone(587.33, 0.1, 0.18, 'triangle', 0.15); }
+function sfxBell() { const f = 740; tone(f, 0, 2.4, 'sine', 0.3); tone(f * 2.76, 0, 1.4, 'sine', 0.12); tone(f * 5.4, 0, 0.7, 'sine', 0.06); }
+function sfxFanfare() {
+  [[523.25, 0], [659.25, 0.11], [783.99, 0.22], [1046.5, 0.33]].forEach(([f, s]) => tone(f, s, 0.16, 'triangle', 0.16));
+  [783.99, 987.77, 1174.66, 1567.98].forEach(f => tone(f, 0.5, 0.9, 'triangle', 0.09));
+}
+
+/* ================= confetti ================= */
+const confettiCanvas = $('confetti');
+const cctx = confettiCanvas.getContext('2d');
+let bits = [], confettiT = 0;
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function confetti() {
+  if (reduceMotion) return;
+  const W = confettiCanvas.width, H = confettiCanvas.height;
+  const cols = ['#e8483b', '#ffc533', '#2f7de1', '#23b35f', '#ffffff', '#8b5cf6'];
+  bits = [];
+  for (let i = 0; i < 160; i++) bits.push({ x: W * (0.2 + Math.random() * 0.6), y: H * 0.35, vx: (Math.random() - 0.5) * W * 0.012, vy: -Math.random() * H * 0.022 - H * 0.004, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, c: cols[i % cols.length], s: (6 + Math.random() * 8) * (W / window.innerWidth) });
+  confettiT = 3.2;
+}
+function drawConfetti(dt) {
+  const W = confettiCanvas.width, H = confettiCanvas.height;
+  cctx.clearRect(0, 0, W, H);
+  if (confettiT <= 0) return;
+  confettiT -= dt;
+  for (const b of bits) {
+    b.vy += H * 0.0006; b.x += b.vx; b.y += b.vy; b.vx *= 0.99; b.r += b.vr;
+    cctx.save(); cctx.translate(b.x, b.y); cctx.rotate(b.r); cctx.fillStyle = b.c; cctx.fillRect(-b.s / 2, -b.s / 4, b.s, b.s / 2); cctx.restore();
+  }
+}
+
+/* ================= loop ================= */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (mode === 'run' && world) physicsStep(dt);
+  for (const p of parts) {
+    if (p.type !== 'bell' || !p.anim) continue;
+    const a = p.anim;
+    a.swing += dt;
+    p.mesh.userData.head.rotation.z = Math.sin(a.swing * 20) * 0.32 * Math.exp(-a.swing * 2.2);
+    if (a.flag >= 0) {
+      a.flag += dt;
+      const k = Math.min(1, a.flag / 1.1), e = 1 - Math.pow(1 - k, 3);
+      p.mesh.userData.cloth.position.y = 0.4 + e * 1.62;
+      p.mesh.userData.cloth.rotation.y = Math.sin(a.flag * 6) * 0.15;
+    }
+  }
+  if (mode === 'menu') cam.az += dt * 0.06;
+  updateCam();
+  renderer.render(scene, camera);
+  placeToolbar();
+  drawConfetti(dt);
+  requestAnimationFrame(frame);
+}
+
+/* ================= boot ================= */
+window.addEventListener('resize', resize);
+try {
+  await RAPIER.init();
+  resize();
+  resetCam();
+  buildTray();
+  current = MISSIONS[0]; rng = mulberry32(MISSIONS[0].seed);
+  for (const f of MISSIONS[0].fixed) addPart(f.type, { ...f, state: 'placed', locked: true });
+  for (const [t, n] of Object.entries(MISSIONS[0].pile)) for (let i = 0; i < n; i++) addPart(t);
+  window.__workshopReady = true;
+  $('loading').hidden = true;
+  openMenu();
+  requestAnimationFrame(frame);
+} catch (err) {
+  window.__workshopReady = true;
+  $('loadingText').textContent = '물리 엔진을 켜지 못했어요. 새로고침하거나 다른 브라우저(크롬)로 열어 주세요.';
+  console.error(err);
+}
+</script>
+
+</body>
+</html>
